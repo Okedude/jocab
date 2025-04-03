@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mein Spiel</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        #game-container {
+            position: relative;
+            text-align: center;
+        }
+        #gameCanvas {
+            border: 2px solid #ccc;
+            background-color: #e6e6e6;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        #game-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            display: none;
+            z-index: 10;
+        }
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+            width: 350px;
+            margin: 20px auto;
+            display: none;
+        }
+        .form-container h2 {
+            color: #5c6bc0;
+            text-align: center;
+        }
+        .form-container input[type="text"],
+        .form-container input[type="password"],
+        .form-container input[type="email"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .form-container button {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .form-container button:hover {
+            background-color: #3f51b5;
+        }
+        #loggedInUser {
+            color: #5c6bc0;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        #showLoginForm {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        #showLoginForm:hover {
+            background-color: #3f51b5;
+        }
+        #formArea {
+            margin-top: 20px;
+        }
+        #userDropdown {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            display: none;
+            z-index: 10;
+        }
+        #userDropdown button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 5px;
+            border: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        #userDropdown button:hover {
+            background-color: #e0e0e0;
+        }
+        #levelDisplay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            display: none;
+            z-index: 11;
+        }
+        #levelDisplay h2 {
+            text-align: center;
+        }
+        #levelDisplay ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        #levelDisplay li {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        #levelDisplay button {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        #levelDisplay button:hover {
+            background-color: #3f51b5;
+        }
+        #leaderboard {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            display: none;
+            z-index: 12;
+        }
+        #leaderboard h2 {
+            text-align: center;
+        }
+        #leaderboard table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #leaderboard th, #leaderboard td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        #leaderboard th {
+            background-color: #f0f0f0;
+        }
+        #leaderboard button {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        #leaderboard button:hover {
+            background-color: #3f51b5;
+        }
+        #levelSelect {
+            margin-bottom: 10px;
+        }
+        #modeSelect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            display: block;
+            z-index: 13;
+        }
+        #modeSelect button {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #modeSelect button:hover {
+            background-color: #3f51b5;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="loggedInUser"></div>
+        <div id="userDropdown">
+            <button id="showLevels">Level</button>
+            <button id="showLeaderboard">Leaderboard</button>
+        </div>
+        <div id="levelDisplay">
+            <h2>Absolvierte Level</h2>
+            <ul id="levelList"></ul>
+            <button id="backToGame">Zurück zum Spiel</button>
+        </div>
+        <div id="leaderboard">
+            <h2>Leaderboard</h2>
+            <select id="levelSelect"></select>
+            <table id="leaderboardTable">
+                <thead>
+                    <tr>
+                        <th>Platz</th>
+                        <th>Benutzername</th>
+                        <th>Zeit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            <button id="backToGameLeaderboard">Zurück zum Spiel</button>
+        </div>
+        <div id="modeSelect">
+            <button id="originalMode">ORIGINAL</button>
+            <button id="showdownMode">SHOWDOWN (New)</button>
+        </div>
+        <button id="showLoginForm">Login</button>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="game-message"></div>
+        <button id="replayButton">Neues Spiel</button>
+        <div id="jakobSize"></div>
+        <div id="hochstrasserSize"></div>
+        <div id="formArea">
+            <div id="loginForm" class="form-container">
+                <h2>Login</h2>
+                <input type="text" id="loginEmailUsername" placeholder="E-Mail oder Benutzername"><br><br>
+                <input type="password" id="loginPassword" placeholder="Passwort"><br><br>
+                <button id="loginButton">Einloggen</button>
+                <p>Noch kein Konto? <a href="#" id="showRegister">Registrieren</a></p>
+            </div>
+            <div id="registerForm" class="form-container">
+                <h2>Registrieren</h2>
+                <input type="email" id="registerEmail" placeholder="E-Mail"><br><br>
+                <input type="text" id="registerUsername" placeholder="Benutzername"><br><br>
+                <input type="password" id="registerPassword" placeholder="Passwort"><br><br>
+                <button id="registerButton">Registrieren</button>
+                <p>Bereits ein Konto? <a href="#" id="showLogin">Einloggen</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
