@@ -217,6 +217,45 @@
         #modeSelect button:hover {
             background-color: #3f51b5;
         }
+        /* Spielauswahl-Popup */
+        #gameSelectPopup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #gameSelectPopup > div {
+            background: white;
+            padding: 40px 30px 30px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            min-width: 300px;
+        }
+        #gameSelectPopup h2 {
+            margin-bottom: 30px;
+            color: #5c6bc0;
+        }
+        #gameSelectPopup button {
+            background-color: #5c6bc0;
+            color: white;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 100%;
+        }
+        #gameSelectPopup button:hover {
+            background-color: #3f51b5;
+        }
     </style>
 </head>
 <body>
@@ -274,6 +313,14 @@
                 <p>Bereits ein Konto? <a href="#" id="showLogin">Einloggen</a></p>
             </div>
         </div>
+    </div>
+    <!-- Spielauswahl-Popup -->
+    <div id="gameSelectPopup" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;">
+      <div style="background:white;padding:40px 30px 30px 30px;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.2);text-align:center;min-width:300px;">
+        <h2 style="margin-bottom:30px;color:#5c6bc0;">Spielauswahl</h2>
+        <button id="selectHochstrasserRun" style="background-color:#5c6bc0;color:white;padding:15px 30px;margin-bottom:20px;border:none;border-radius:6px;font-size:1.2em;cursor:pointer;width:100%;">HochstrasserRun</button>
+        <button id="selectTicTacJakob" style="background-color:#43a047;color:white;padding:15px 30px;border:none;border-radius:6px;font-size:1.2em;cursor:pointer;width:100%;">tic tac jakob</button>
+      </div>
     </div>
     <script src="script.js"></script>
 </body>
