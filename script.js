@@ -1161,15 +1161,17 @@ function showTicTacToe() {
     function genCode() {
       return Math.floor(100000 + Math.random() * 900000).toString();
     }
-    // Helper: get/set lobby state in localStorage
-    function getLobby(code) {
-      return JSON.parse(localStorage.getItem('ttt_lobby_' + code));
+    // Helper: get/set lobby state in Firebase
+    function getLobby(code, callback) {
+      db.ref('ttt_lobbies/' + code).on('value', snapshot => {
+        callback(snapshot.val());
+      });
     }
     function setLobby(code, data) {
-      localStorage.setItem('ttt_lobby_' + code, JSON.stringify(data));
+      db.ref('ttt_lobbies/' + code).set(data);
     }
     function removeLobby(code) {
-      localStorage.removeItem('ttt_lobby_' + code);
+      db.ref('ttt_lobbies/' + code).remove();
     }
     // Create lobby
     ttt.querySelector('#ttt-create-lobby').onclick = () => {
@@ -1185,49 +1187,49 @@ function showTicTacToe() {
       menu.style.display = 'none';
       lobbyDiv.style.display = 'block';
       lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Warte auf Mitspieler...</div>`;
-      pollInterval = setInterval(checkLobbyJoin, 1000);
+      // Listen for join
+      db.ref('ttt_lobbies/' + lobbyCode + '/players/O').on('value', snap => {
+        if (snap.val()) {
+          lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
+          setTimeout(() => startMultiplayerGame(), 1000);
+        }
+      });
     };
     // Join lobby
     ttt.querySelector('#ttt-join-lobby').onclick = () => {
       const code = ttt.querySelector('#ttt-join-code').value.trim();
-      const lobby = getLobby(code);
-      if (code.length === 6 && lobby && !lobby.players.O) {
-        lobby.players.O = true;
-        setLobby(code, lobby);
-        lobbyCode = code;
-        player = 'O';
-        menu.style.display = 'none';
-        lobbyDiv.style.display = 'block';
-        lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
-        setTimeout(() => startMultiplayerGame(), 1000);
-      } else {
-        alert('Lobby nicht gefunden oder bereits voll!');
-      }
+      db.ref('ttt_lobbies/' + code).once('value').then(snap => {
+        const lobby = snap.val();
+        if (code.length === 6 && lobby && !lobby.players.O) {
+          db.ref('ttt_lobbies/' + code + '/players/O').set(true);
+          lobbyCode = code;
+          player = 'O';
+          menu.style.display = 'none';
+          lobbyDiv.style.display = 'block';
+          lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
+          setTimeout(() => startMultiplayerGame(), 1000);
+        } else {
+          alert('Lobby nicht gefunden oder bereits voll!');
+        }
+      });
     };
-    // Poll for join
-    function checkLobbyJoin() {
-      const lobby = getLobby(lobbyCode);
-      if (lobby && lobby.players.O) {
-        clearInterval(pollInterval);
-        lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
-        setTimeout(() => startMultiplayerGame(), 1000);
-      }
-    }
     // Multiplayer game logic
     function startMultiplayerGame() {
         // Set usernames for X and O if not already set
-        let lobby = getLobby(lobbyCode);
-        if (!lobby.xUser || !lobby.oUser) {
-            if (player === 'X' && !lobby.xUser) lobby.xUser = currentUser.username || currentUser.email;
-            if (player === 'O' && !lobby.oUser) lobby.oUser = currentUser.username || currentUser.email;
-            setLobby(lobbyCode, lobby);
-        }
-        renderMultiplayer();
-        pollInterval = setInterval(syncMultiplayer, 500);
+        db.ref('ttt_lobbies/' + lobbyCode).once('value').then(snap => {
+          let lobby = snap.val();
+          if (!lobby.xUser || !lobby.oUser) {
+              if (player === 'X' && !lobby.xUser) lobby.xUser = currentUser.username || currentUser.email;
+              if (player === 'O' && !lobby.oUser) lobby.oUser = currentUser.username || currentUser.email;
+              setLobby(lobbyCode, lobby);
+          }
+        });
+        db.ref('ttt_lobbies/' + lobbyCode).on('value', snap => {
+          renderMultiplayer(snap.val());
+        });
     }
-    function renderMultiplayer() {
-        let lobby = getLobby(lobbyCode);
-        boardDiv.style.display = 'grid'; // Ensure board is visible
+    function renderMultiplayer(lobby) {
+        boardDiv.style.display = 'grid';
         boardDiv.innerHTML = '';
         for (let i = 0; i < 9; i++) {
           const cell = document.createElement('button');
@@ -1252,39 +1254,15 @@ function showTicTacToe() {
                 lobby.current = player === 'X' ? 'O' : 'X';
               }
               setLobby(lobbyCode, lobby);
-              renderMultiplayer();
             }
           });
           boardDiv.appendChild(cell);
         }
-        if (lobby.finished) {
-          if (lobby.winner) {
-            statusDiv.textContent = `Spieler ${lobby.winner} gewinnt!`;
-          } else {
-            statusDiv.textContent = 'Unentschieden!';
-          }
-        } else {
-          // Status: Am Zug: Benutzername
-          let amZugName = lobby.turn === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O');
-          statusDiv.textContent = lobby.winner ? 
-              (lobby.winner === 'draw' ? 'Unentschieden!' : `Gewonnen: ${lobby.winner === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O')}`)
-              : `Am Zug: ${amZugName}`;
-        }
-      }
-    function syncMultiplayer() {
-      const lobby = getLobby(lobbyCode);
-      if (!lobby) {
-        clearInterval(pollInterval);
-        alert('Lobby wurde geschlossen.');
-        ttt.remove();
-        document.getElementById('gameSelectPopup').style.display = 'flex';
-        return;
-      }
-      renderMultiplayer();
-      if (lobby.finished) {
-        clearInterval(pollInterval);
-        setTimeout(() => removeLobby(lobbyCode), 3000);
-      }
+        // Status: Am Zug: Benutzername
+        let amZugName = lobby.current === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O');
+        statusDiv.textContent = lobby.finished ?
+            (lobby.winner ? `Gewonnen: ${lobby.winner === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O')}` : 'Unentschieden!')
+            : `Am Zug: ${amZugName}`;
     }
     function checkWinMultiplayer(board, p) {
       const wins = [
