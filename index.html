@@ -323,5 +323,22 @@
       </div>
     </div>
     <script src="script.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script>
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyBJN7X1giDPgpVKsPyNDpySjeyEsNpU_ts",
+        authDomain: "jocabgame.firebaseapp.com",
+        databaseURL: "https://jocabgame-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "jocabgame",
+        storageBucket: "jocabgame.firebasestorage.app",
+        messagingSenderId: "708640378750",
+        appId: "1:708640378750:web:217add69609a98bbfe2d2f",
+        measurementId: "G-EGG7P8YZL3"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+    </script>
 </body>
 </html>
