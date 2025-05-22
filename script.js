@@ -1182,13 +1182,14 @@ function showTicTacToe() {
         current: 'X',
         finished: false,
         players: { X: true, O: false },
-        winner: null
+        winner: null,
+        xUser: currentUser.username || currentUser.email,
+        oUser: null
       });
       menu.style.display = 'none';
       lobbyDiv.style.display = 'block';
       lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Warte auf Mitspieler...</div>`;
-      // Listen for join
-      db.ref('ttt_lobbies/' + lobbyCode + '/players/O').on('value', snap => {
+      db.ref('ttt_lobbies/' + lobbyCode + '/oUser').on('value', snap => {
         if (snap.val()) {
           lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
           setTimeout(() => startMultiplayerGame(), 1000);
@@ -1200,16 +1201,54 @@ function showTicTacToe() {
       const code = ttt.querySelector('#ttt-join-code').value.trim();
       db.ref('ttt_lobbies/' + code).once('value').then(snap => {
         const lobby = snap.val();
-        if (code.length === 6 && lobby && !lobby.players.O) {
-          db.ref('ttt_lobbies/' + code + '/players/O').set(true);
+        const userName = currentUser.username || currentUser.email;
+        if (!lobby) {
+          alert('Lobby nicht gefunden!');
+          return;
+        }
+        // Rejoin as X
+        if (lobby.xUser === userName) {
+          lobbyCode = code;
+          player = 'X';
+          menu.style.display = 'none';
+          lobbyDiv.style.display = 'block';
+          lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Warte auf Mitspieler...</div>`;
+          setTimeout(() => startMultiplayerGame(), 500);
+          return;
+        }
+        // Rejoin as O
+        if (lobby.oUser === userName) {
           lobbyCode = code;
           player = 'O';
           menu.style.display = 'none';
           lobbyDiv.style.display = 'block';
           lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
-          setTimeout(() => startMultiplayerGame(), 1000);
-        } else {
-          alert('Lobby nicht gefunden oder bereits voll!');
+          setTimeout(() => startMultiplayerGame(), 500);
+          return;
+        }
+        // Join as O if slot is free, xUser exists, oUser not set, und user ist nicht xUser
+        if (!lobby.oUser && lobby.xUser && lobby.xUser !== userName) {
+          db.ref('ttt_lobbies/' + code).transaction(current => {
+            if (current && !current.oUser && current.xUser && current.xUser !== userName) {
+              current.oUser = userName;
+              current.players.O = true;
+              if (!Array.isArray(current.board)) current.board = Array(9).fill(null);
+              return current;
+            }
+            return current; // <--- WICHTIG: return current statt undefined, damit kein Abbruch
+          }, (error, committed, snapshot) => {
+            if (error) {
+              alert('Fehler beim Beitreten der Lobby!');
+            } else if (committed) {
+              lobbyCode = code;
+              player = 'O';
+              menu.style.display = 'none';
+              lobbyDiv.style.display = 'block';
+              lobbyDiv.innerHTML = `<div style='margin-bottom:10px;'>Lobby-Code: <b>${lobbyCode}</b></div><div>Mitspieler gefunden! Spiel startet...</div>`;
+              setTimeout(() => startMultiplayerGame(), 500);
+            }
+          });
+          return;
         }
       });
     };
@@ -1229,40 +1268,87 @@ function showTicTacToe() {
         });
     }
     function renderMultiplayer(lobby) {
-        boardDiv.style.display = 'grid';
-        boardDiv.innerHTML = '';
-        for (let i = 0; i < 9; i++) {
-          const cell = document.createElement('button');
-          cell.style.width = '60px';
-          cell.style.height = '60px';
-          cell.style.fontSize = '2em';
-          cell.style.background = '#f4f4f4';
-          cell.style.border = '2px solid #43a047';
-          cell.style.borderRadius = '8px';
-          cell.textContent = lobby.board[i] || '';
-          cell.disabled = !!lobby.board[i] || lobby.finished || lobby.current !== player;
-          cell.addEventListener('click', () => {
-            if (!lobby.board[i] && !lobby.finished && lobby.current === player) {
-              lobby.board[i] = player;
-              if (checkWinMultiplayer(lobby.board, player)) {
-                lobby.finished = true;
-                lobby.winner = player;
-              } else if (lobby.board.every(x => x)) {
-                lobby.finished = true;
-                lobby.winner = null;
-              } else {
-                lobby.current = player === 'X' ? 'O' : 'X';
-              }
-              setLobby(lobbyCode, lobby);
-            }
-          });
-          boardDiv.appendChild(cell);
+        if (!lobby || !Array.isArray(lobby.board)) {
+            boardDiv.style.display = 'none';
+            statusDiv.textContent = 'Lobby existiert nicht! Bitte prüfe den Code.';
+            return;
         }
-        // Status: Am Zug: Benutzername
-        let amZugName = lobby.current === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O');
-        statusDiv.textContent = lobby.finished ?
-            (lobby.winner ? `Gewonnen: ${lobby.winner === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O')}` : 'Unentschieden!')
-            : `Am Zug: ${amZugName}`;
+        // Board-Initialisierung nur, wenn beide Spieler gesetzt und unterschiedlich sind
+        if (lobby.xUser && lobby.oUser && lobby.xUser !== lobby.oUser) {
+            // Defensive: Board initialisieren, falls nicht vorhanden
+            if (!Array.isArray(lobby.board) || lobby.board.length !== 9) {
+                lobby.board = Array(9).fill(null);
+                lobby.current = 'X';
+                lobby.finished = false;
+                lobby.winner = null;
+                setLobby(lobbyCode, lobby);
+                setTimeout(() => {
+                    // Hole die aktuellste Lobby nochmal, um Race-Conditions zu vermeiden
+                    db.ref('ttt_lobbies/' + lobbyCode).once('value').then(snap => {
+                        let lobbyNow = snap.val();
+                        if (lobbyNow && (!Array.isArray(lobbyNow.board) || lobbyNow.board.length !== 9)) {
+                            lobbyNow.board = Array(9).fill(null);
+                            lobbyNow.current = 'X';
+                            lobbyNow.finished = false;
+                            lobbyNow.winner = null;
+                            setLobby(lobbyCode, lobbyNow);
+                        }
+                    });
+                }, 100);
+                boardDiv.style.display = 'none';
+                statusDiv.textContent = 'Initialisiere Spielfeld...';
+                return;
+            }
+            boardDiv.style.display = 'grid';
+            boardDiv.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+              const cell = document.createElement('button');
+              cell.style.width = '60px';
+              cell.style.height = '60px';
+              cell.style.fontSize = '2em';
+              cell.style.background = '#f4f4f4';
+              cell.style.border = '2px solid #43a047';
+              cell.style.borderRadius = '8px';
+              cell.textContent = lobby.board[i] || '';
+              cell.disabled = !!lobby.board[i] || lobby.finished || lobby.current !== player;
+              cell.addEventListener('click', () => {
+                if (!lobby.board[i] && !lobby.finished && lobby.current === player) {
+                  lobby.board[i] = player;
+                  if (checkWinMultiplayer(lobby.board, player)) {
+                    lobby.finished = true;
+                    lobby.winner = player;
+                  } else if (lobby.board.every(x => x)) {
+                    lobby.finished = true;
+                    lobby.winner = null;
+                  } else {
+                    lobby.current = player === 'X' ? 'O' : 'X';
+                  }
+                  setLobby(lobbyCode, lobby);
+                }
+              });
+              boardDiv.appendChild(cell);
+            }
+            // Status: Am Zug: Benutzername
+            let amZugName = lobby.current === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O');
+            statusDiv.textContent = lobby.finished ?
+                (lobby.winner ? `Gewonnen: ${lobby.winner === 'X' ? (lobby.xUser || 'X') : (lobby.oUser || 'O')}` : 'Unentschieden!')
+                : `Am Zug: ${amZugName}`;
+        } else {
+            // Noch nicht beide Spieler da oder identisch: Board ausblenden, Status anzeigen
+            boardDiv.style.display = 'none';
+            // Zeige explizit, welche Spieler gesetzt sind
+            let info = '';
+            if (lobby.xUser && !lobby.oUser) {
+                info = `Warte auf Mitspieler... (X: ${lobby.xUser}, O: -)`;
+            } else if (!lobby.xUser && lobby.oUser) {
+                info = `Warte auf Mitspieler... (X: -, O: ${lobby.oUser})`;
+            } else if (lobby.xUser && lobby.oUser && lobby.xUser === lobby.oUser) {
+                info = 'Fehler: Beide Spieler sind identisch. Bitte verlasse die Lobby und trete mit einem anderen Account bei.';
+            } else {
+                info = 'Warte auf Mitspieler...';
+            }
+            statusDiv.textContent = info;
+        }
     }
     function checkWinMultiplayer(board, p) {
       const wins = [
